@@ -1,0 +1,5 @@
+// EIA, 2024 Average Monthly Bill — Residential, table 5A. State averages, not ZIP-level quotes.
+export const electricity: Record<string, number> = { AL:173.50, AK:143.54, AZ:160.24, AR:129.13, CA:160.86, CO:100.57, CT:199.66, DE:150.87, DC:113.23, FL:156.09, GA:151.25, HI:212.12, ID:108.73, IL:109.99, IN:133.06, IA:111.54, KS:123.90, KY:133.81, LA:140.96, ME:133.60, MD:165.87, MA:167.20, MI:119.31, MN:110.06, MS:154.83, MO:129.18, MT:107.91, NE:110.28, NV:139.39, NH:144.87, NJ:128.13, NM:92.88, NY:139.53, NC:143.50, ND:118.38, OH:135.16, OK:132.05, OR:129.62, PA:145.17, RI:162.40, SC:149.51, SD:127.81, TN:143.32, TX:163.72, UT:94.57, VT:125.66, VA:148.77, WA:113.68, WV:154.76, WI:110.87, WY:107.65 };
+export const utilityEstimate = (state: string) => electricity[state] == null ? null : Math.round((electricity[state] + 205) / 5) * 5;
+export type LocationEstimate = { city: string; state: string; electricity: number | null; utilities: number | null };
+export const defaultLocation: LocationEstimate = { city: "Camp Hill", state: "PA", electricity: 145.17, utilities: 350 };
