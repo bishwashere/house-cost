@@ -47,4 +47,9 @@
 .schedule-details dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0;padding-top:12px;border-top:1px solid var(--line);text-align:left}
 .schedule-details dt{font-size:10px;color:#657361;line-height:1.5}
 .schedule-details dd{margin:4px 0 0;font-size:12px}
+.schedule-details .schedule-escrow,.schedule-details .schedule-balance{grid-column:1/-1;display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.schedule-details .schedule-escrow dd,.schedule-details .schedule-balance dd{margin:0}
+.schedule-escrow dt,.schedule-escrow dd,.schedule-balance dd{font-weight:600}
+.schedule-escrow-item{padding-left:10px;border-left:2px solid var(--line)}
+.schedule-balance{border-top:1px solid var(--line);padding-top:10px}
 @media(max-width:520px){.schedule-card{padding:21px 18px}.schedule-card h2{font-size:14px}.schedule-note{font-size:10px}.schedule-scroll{margin-top:16px}.schedule-table th,.schedule-table td{padding:12px 8px}.schedule-table thead th{font-size:11px}.schedule-amounts td{font-size:12px}.schedule-details dl{grid-template-columns:1fr;gap:8px}.schedule-details dl>div{display:flex;align-items:baseline;justify-content:space-between;gap:12px}.schedule-details dt{min-width:0}.schedule-details dd{margin:0;text-align:right;flex-shrink:0;font-size:11px}}

@@ -42,6 +42,8 @@ export default function Calculator() {
   const values = applyLocationEstimates(manualValues, location, overrides);
   const numeric = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, Number(value)])) as Inputs;
   const result = calculate(numeric);
+  const escrowExpenses = result.expenses.filter(item => ["tax", "insurance", "pmi"].includes(item.key));
+  const separateExpenses = result.expenses.filter(item => ["utilities", "hoa", "maintenance"].includes(item.key));
   const schedule = mortgageSchedule(result.loan, numeric.rate, numeric.years);
   const income = monthlyIncome(incomes[basis][0], incomes[basis][1], second, "annual");
   const analysis = affordability(result.total, income);
@@ -83,7 +85,13 @@ export default function Calculator() {
   };
   const copy = async () => {
     const text = ["HOUSE AFFORDABILITY CALCULATION", `House price: ${currency(numeric.price, 2)}`, `ZIP: ${zip || "Not provided"}${location ? ` (${location.city}, ${location.state})` : ""}`, `Down payment: ${numeric.down}% · ${currency(result.downPayment, 2)}`, `Mortgage loan: ${currency(result.loan, 2)}`, `Interest: ${numeric.rate}% fixed · ${numeric.years} years`, `Tax rate: ${numeric.tax}% annually`, `Insurance: ${currency(numeric.insurance, 2)}/year`, `Maintenance: ${numeric.maintenance}% annually`, `PMI rate: ${numeric.pmi}% annually (applies below 20% down)`, "", "MONTHLY EXPENSES", ...result.expenses.map(item => `${item.label}: ${currency(item.amount, 2)}`), `Total monthly housing cost: ${currency(result.total, 2)}`, `Annual housing expenses: ${currency(result.total * 12, 2)}`, "", `HOUSEHOLD INCOME · ${basis.toUpperCase()} · ${period.toUpperCase()} INPUT`, `Person 1: ${currency(incomes[basis][0] / (period === "annual" ? 1 : 12), 2)}/${period === "annual" ? "year" : "month"}`, ...(second ? [`Person 2: ${currency(incomes[basis][1] / (period === "annual" ? 1 : 12), 2)}/${period === "annual" ? "year" : "month"}`] : []), `Monthly household income: ${currency(income, 2)}`, analysis ? `Remaining monthly income: ${currency(analysis.remaining, 2)}\nHousing percentage: ${analysis.percentage.toFixed(1)}%\nIncome remaining: ${analysis.remainingPercentage.toFixed(1)}%\nIllustrative burden: ${analysis.category}` : "Affordability: enter a positive household income.", "", basis === "gross" ? "Remaining income is before income taxes and other living expenses." : "Remaining income is after income taxes, before other living expenses.", "Illustrative categories: ≤30% lower, >30–40% moderate, >40% high. These are not mortgage qualification rules.", "Location estimates are planning assumptions, not property-specific quotes. PMI eligibility, cost, and cancellation depend on loan terms.", `Location factor: ${location ? `${location.costFactor.toFixed(3)} (${location.state} BEA 2024 index ${location.priceIndex ?? "unavailable"}; ${location.area ?? "no metro allowance"}, ×${location.areaMultiplier})` : "fallback defaults"}.`, ...locationFields.map(field => `${field}: ${estimateHint(field)}`), "Tax: historical state effective rate applied to the entered price; assessed values, exemptions, and purchase reassessment may differ.", "Insurance: $1,800 × location factor, nearest $50. Maintenance: 1% × location factor, nearest 0.01%. Utilities: EIA state electricity + $205 × location factor, nearest $5. Insurance model excludes hazard and coverage pricing.", "Sources: https://www.bea.gov/data/prices-inflation/regional-price-parities-state-and-metro-area ; https://taxfoundation.org/data/all/state/property-taxes-by-state-county/ ; https://www.eia.gov/electricity/sales_revenue_price/pdf/table_5A.pdf", "Excludes closing costs and other debts. Estimates are not a loan offer."].join("\n");
-    const scheduleText = ["", "MONTHLY HOUSING COST SCHEDULE", "Monthly amounts use the first month of each range. Loan balance is at the end. Current expense estimates are held constant, including PMI; actual costs and PMI cancellation may change.", "Estimated escrow: property taxes, homeowners insurance, and PMI; lender billing may differ. Other costs: HOA, utilities, and maintenance reserve.", "Month | Total/month | Principal/month | Interest/month | Estimated escrow/month | Other costs/month | Ending loan balance", ...schedule.map(row => `${row.startMonth === row.endMonth ? row.startMonth : `${row.startMonth}–${row.endMonth}`} | ${currency(result.total, 2)} | ${currency(row.principal, 2)} | ${currency(row.interest, 2)} | ${currency(result.escrow, 2)} | ${currency(result.otherHousing, 2)} | ${currency(row.balance, 2)}`), ...(schedule.length ? [] : [`No loan balance. Ongoing monthly housing cost: ${currency(result.total, 2)}.`])].join("\n");
+    const scheduleText = ["", "MONTHLY HOUSING COST SCHEDULE", "Monthly amounts use the first month of each range. Loan balance is at the end. Current expenses are held constant, including PMI; actual costs and PMI cancellation may change.", "Escrow includes the itemized taxes, homeowners insurance, and PMI; lender billing may differ.", "Month | Total/month | Principal/month | Interest/month", ...schedule.flatMap(row => [
+      `${row.startMonth === row.endMonth ? row.startMonth : `${row.startMonth}–${row.endMonth}`} | ${currency(result.total, 2)} | ${currency(row.principal, 2)} | ${currency(row.interest, 2)}`,
+      `Escrow subtotal/month: ${currency(result.escrow, 2)}`,
+      ...escrowExpenses.map(item => `  ${item.label}/month (included in escrow): ${currency(item.amount, 2)}`),
+      ...separateExpenses.map(item => `${item.label}/month: ${currency(item.amount, 2)}`),
+      `Ending loan balance: ${currency(row.balance, 2)}`, "",
+    ]), ...(schedule.length ? [] : [`No loan balance. Ongoing monthly housing cost: ${currency(result.total, 2)}.`])].join("\n");
     const completeText = text + "\n" + scheduleText;
     try { await navigator.clipboard.writeText(completeText); setCopyStatus("Calculation copied!"); setCopyFallback(""); } catch { setCopyFallback(completeText); setCopyStatus("Select and copy your calculation below."); }
   };
@@ -147,7 +155,7 @@ export default function Calculator() {
       <section className="card schedule-card" aria-labelledby="schedule-heading">
         <h2 id="schedule-heading">Monthly Housing Cost Schedule</h2>
         {schedule.length > 0 ? <>
-          <p id="schedule-note" className="schedule-note">Monthly amounts use the first month of each range; loan balance is at the end. Current expense estimates are held constant, including PMI; actual costs and PMI cancellation may change.</p>
+          <p id="schedule-note" className="schedule-note">Monthly amounts use the first month of each range; loan balance is at the end. Current expenses are held constant, including PMI; actual costs and PMI cancellation may change.</p>
           <div className="schedule-scroll" role="region" aria-labelledby="schedule-heading" aria-describedby="schedule-note" tabIndex={0}>
             <table className="schedule-table">
               <thead><tr><th id="schedule-total-label" scope="col">Total<span>/ month</span></th><th id="schedule-principal-label" scope="col">Principal<span>/ month</span></th><th id="schedule-interest-label" scope="col">Interest<span>/ month</span></th></tr></thead>
@@ -158,15 +166,16 @@ export default function Calculator() {
                 </tr>
                 <tr><td className="schedule-details" colSpan={3}>
                   <dl>
-                    <div><dt>Estimated escrow / month</dt><dd>{currency(result.escrow, 2)}</dd></div>
-                    <div><dt>Other costs / month</dt><dd>{currency(result.otherHousing, 2)}</dd></div>
-                    <div><dt>Loan balance at end</dt><dd>{currency(row.balance, 2)}</dd></div>
+                    <div className="schedule-escrow"><dt>Escrow subtotal / month</dt><dd>{currency(result.escrow, 2)}</dd></div>
+                    {escrowExpenses.map(item => <div key={item.key} className="schedule-escrow-item"><dt>{item.key === "pmi" ? "PMI" : item.label}</dt><dd>{currency(item.amount, 2)}</dd></div>)}
+                    {separateExpenses.map(item => <div key={item.key}><dt>{item.label} / month</dt><dd>{currency(item.amount, 2)}</dd></div>)}
+                    <div className="schedule-balance"><dt>Loan balance at end</dt><dd>{currency(row.balance, 2)}</dd></div>
                   </dl>
                 </td></tr>
               </tbody>)}
             </table>
           </div>
-          <p className="schedule-note">Estimated escrow: property taxes, homeowners insurance, and PMI; lender billing may differ. Other costs: HOA, utilities, and maintenance reserve.</p>
+          <p className="schedule-note">Escrow includes the itemized taxes, homeowners insurance, and PMI shown above; lender billing may differ.</p>
         </> : <p className="schedule-note">No loan balance. Ongoing monthly housing cost: {currency(result.total, 2)}.</p>}
       </section>
       <footer><p>For planning and illustration only. Not financial advice or a loan offer.<br/>Estimates exclude closing costs, other debts, and changes in future expenses.</p><span className="footer-private"><ShieldCheck size={13}/> Income stays in your browser</span></footer>
