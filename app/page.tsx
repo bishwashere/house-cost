@@ -76,7 +76,8 @@ export default function Calculator() {
     return () => { clearTimeout(timer); controller.abort(); };
   }, [zip]);
 
-  const setIncome = (index: number, value: string) => setIncomes(previous => ({ ...previous, [basis]: previous[basis].map((amount, i) => i === index ? Number(value) * (period === "monthly" ? 12 : 1) : amount) }));
+  const setAnnualIncome = (index: number, value: number) => setIncomes(previous => ({ ...previous, [basis]: previous[basis].map((amount, i) => i === index ? value : amount) }));
+  const setIncome = (index: number, value: string) => setAnnualIncome(index, Number(value) * (period === "monthly" ? 12 : 1));
   const reset = () => {
     setValues(Object.fromEntries(Object.entries(defaults).map(([key, value]) => [key, String(value)])) as Record<keyof Inputs, string>);
     setZip("17011"); setLocation(defaultLocation); setLocationStatus(""); setOverrides({});
@@ -141,7 +142,12 @@ export default function Calculator() {
 
       <section className="card income-card" aria-labelledby="income-heading"><div className="step-title"><h2 id="income-heading">Household Income</h2></div>
         <div className="income-options"><div className="segmented" aria-label="Income frequency"><button aria-pressed={period === "annual"} onClick={() => setPeriod("annual")}>Annual income</button><button aria-pressed={period === "monthly"} onClick={() => setPeriod("monthly")}>Monthly income</button></div><fieldset className="basis-options"><legend className="sr-only">Income tax basis</legend><label><input type="radio" name="basis" checked={basis === "gross"} onChange={() => setBasis("gross")}/> Before taxes <span>(Gross)</span></label><label><input type="radio" name="basis" checked={basis === "net"} onChange={() => setBasis("net")}/> After taxes <span>(Net)</span></label></fieldset></div>
-        <div className="income-inputs"><NumberField id={`income1-${basis}`} label="Person 1 income" value={incomes[basis][0] ? String(incomes[basis][0] / (period === "annual" ? 1 : 12)) : ""} onChange={value => setIncome(0, value)} prefix="$" suffix={period === "annual" ? "/ year" : "/ month"}/>{second && <NumberField id={`income2-${basis}`} label="Person 2 income" value={incomes[basis][1] ? String(incomes[basis][1] / (period === "annual" ? 1 : 12)) : ""} onChange={value => setIncome(1, value)} prefix="$" suffix={period === "annual" ? "/ year" : "/ month"}/>}</div>
+        <div className="income-inputs">{(second ? [0, 1] : [0]).map(index => <div key={`${index}-${basis}`}>
+          <NumberField id={`income${index + 1}-${basis}`} label={`Person ${index + 1} income`} value={incomes[basis][index] ? String(incomes[basis][index] / (period === "annual" ? 1 : 12)) : ""} onChange={value => setIncome(index, value)} prefix="$" suffix={period === "annual" ? "/ year" : "/ month"}/>
+          <div className="down-payment-options income-presets" role="group" aria-label={`Person ${index + 1} ${period} ${basis} income presets`}>
+            {[50000, 70000, 100000, 150000].map(amount => <button key={amount} type="button" aria-pressed={incomes[basis][index] === amount} onClick={() => setAnnualIncome(index, amount)}>{currency(amount / (period === "annual" ? 1 : 12), period === "annual" ? 0 : 2)}</button>)}
+          </div>
+        </div>)}</div>
         <label className="second-person"><input type="checkbox" checked={second} onChange={event => setSecond(event.target.checked)}/> Add Second Person’s Income</label><div className="income-note"><ShieldCheck size={14}/><span>{basis === "gross" ? "Use income before deductions. Gross and net amounts are saved separately." : "Enter your actual take-home income. We don’t estimate taxes or convert gross to net."}</span></div>
       </section>
 

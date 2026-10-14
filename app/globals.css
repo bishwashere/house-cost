@@ -21,6 +21,10 @@
 .down-payment-options button{min-height:44px;border:1px solid #dfe5dc;border-radius:8px;background:#fff;font-size:13px;font-weight:600;color:#56625b}
 .down-payment-options button:hover{background:#f0f5ee}
 .down-payment-options button[aria-pressed=true]{background:var(--teal);border-color:var(--teal);color:#fff}
+.income-inputs>div{min-width:0}
+.income-presets{margin-top:10px;gap:6px}
+.income-presets button{padding:8px 2px;font-size:11px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+@media(max-width:520px){.income-presets button{font-size:10px}}
 .calculator-heading{gap:16px;margin:32px 0 24px}
 .calculator-heading h1{font-size:24px;font-weight:700;line-height:1.3;letter-spacing:-.6px}
 .calculator-heading .text-button{flex-shrink:0}
