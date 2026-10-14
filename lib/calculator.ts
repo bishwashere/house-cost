@@ -2,7 +2,7 @@ export type Inputs = {
   price: number; down: number; rate: number; years: number; tax: number;
   insurance: number; hoa: number; utilities: number; maintenance: number; pmi: number;
 };
-export const defaults: Inputs = { price: 450000, down: 10, rate: 6.5, years: 30, tax: 1.5, insurance: 1800, hoa: 0, utilities: 350, maintenance: 1, pmi: 0.5 };
+export const defaults: Inputs = { price: 300000, down: 10, rate: 6.5, years: 30, tax: 1.5, insurance: 1800, hoa: 0, utilities: 350, maintenance: 1, pmi: 0.5 };
 export function positive(value: unknown): number {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(0, number) : 0;
