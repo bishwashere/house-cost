@@ -150,11 +150,20 @@ export default function Calculator() {
           <p id="schedule-note" className="schedule-note">Monthly amounts use the first month of each range; loan balance is at the end. Current expense estimates are held constant, including PMI; actual costs and PMI cancellation may change.</p>
           <div className="schedule-scroll" role="region" aria-labelledby="schedule-heading" aria-describedby="schedule-note" tabIndex={0}>
             <table className="schedule-table">
-              <thead><tr><th scope="col">Month</th><th scope="col">Total / month</th><th scope="col">Principal / month</th><th scope="col">Interest / month</th><th scope="col">Est. escrow / month</th><th scope="col">Other costs / month</th><th scope="col">Loan balance at end</th></tr></thead>
-              <tbody>{schedule.map(row => <tr key={row.startMonth}>
-                <th scope="row">{row.startMonth === row.endMonth ? row.startMonth : `${row.startMonth}–${row.endMonth}`}</th>
-                <td className="schedule-total">{currency(result.total, 2)}</td><td>{currency(row.principal, 2)}</td><td>{currency(row.interest, 2)}</td><td>{currency(result.escrow, 2)}</td><td>{currency(result.otherHousing, 2)}</td><td>{currency(row.balance, 2)}</td>
-              </tr>)}</tbody>
+              <thead><tr><th id="schedule-total-label" scope="col">Total<span>/ month</span></th><th id="schedule-principal-label" scope="col">Principal<span>/ month</span></th><th id="schedule-interest-label" scope="col">Interest<span>/ month</span></th></tr></thead>
+              {schedule.map(row => <tbody key={row.startMonth}>
+                <tr className="schedule-period"><th id={`schedule-period-${row.startMonth}`} scope="rowgroup" colSpan={3}>{row.startMonth === row.endMonth ? `Month ${row.startMonth}` : `Months ${row.startMonth}–${row.endMonth}`}</th></tr>
+                <tr className="schedule-amounts">
+                  <td headers={`schedule-total-label schedule-period-${row.startMonth}`} className="schedule-total">{currency(result.total, 2)}</td><td headers={`schedule-principal-label schedule-period-${row.startMonth}`}>{currency(row.principal, 2)}</td><td headers={`schedule-interest-label schedule-period-${row.startMonth}`}>{currency(row.interest, 2)}</td>
+                </tr>
+                <tr><td className="schedule-details" colSpan={3}>
+                  <dl>
+                    <div><dt>Estimated escrow / month</dt><dd>{currency(result.escrow, 2)}</dd></div>
+                    <div><dt>Other costs / month</dt><dd>{currency(result.otherHousing, 2)}</dd></div>
+                    <div><dt>Loan balance at end</dt><dd>{currency(row.balance, 2)}</dd></div>
+                  </dl>
+                </td></tr>
+              </tbody>)}
             </table>
           </div>
           <p className="schedule-note">Estimated escrow: property taxes, homeowners insurance, and PMI; lender billing may differ. Other costs: HOA, utilities, and maintenance reserve.</p>
