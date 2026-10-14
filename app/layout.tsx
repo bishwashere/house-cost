@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Nestwell — House Affordability Calculator",
-  description: "See the whole cost of home. Explore mortgage payments, everyday expenses, and how a home fits your household income.",
+  title: "House Affordability Calculator",
+  description: "Calculate monthly housing costs and compare them with household income.",
   icons: { icon: "/icon.svg" },
 };
 

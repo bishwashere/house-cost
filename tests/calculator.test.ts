@@ -5,10 +5,10 @@ import { utilityEstimate } from "../lib/location";
 
 test("standard amortization and full cost include all seven expenses", () => {
   const result = calculate(defaults);
-  assert.equal(result.downPayment, 90000);
-  assert.equal(result.loan, 360000);
-  assert.ok(Math.abs(result.expenses[0].amount - 2275.44488457) < 0.00001);
-  assert.ok(Math.abs(result.total - 3712.94488457) < 0.00001);
+  assert.equal(result.downPayment, 45000);
+  assert.equal(result.loan, 405000);
+  assert.ok(Math.abs(result.expenses[0].amount - 2559.87549514) < 0.00001);
+  assert.ok(Math.abs(result.total - 4166.12549514) < 0.00001);
   assert.equal(result.expenses.length, 7);
 });
 test("zero interest, paid-in-full homes and missing values remain finite", () => {
@@ -20,7 +20,7 @@ test("zero interest, paid-in-full homes and missing values remain finite", () =>
 });
 test("PMI applies only below 20% down and is based on loan balance", () => {
   assert.equal(calculate({ ...defaults, down:10 }).expenses[3].amount, 168.75);
-  assert.equal(calculate(defaults).expenses[3].amount, 0);
+  assert.equal(calculate({ ...defaults, down:20 }).expenses[3].amount, 0);
   assert.equal(calculate({ ...defaults, down:100 }).expenses[3].amount, 0);
 });
 test("expense overrides contribute to the total", () => {
