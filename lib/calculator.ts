@@ -41,7 +41,9 @@ export function calculate(raw: Inputs) {
     { key: "utilities", label: "Utilities", amount: input.utilities, color: "#d9b77b" },
     { key: "maintenance", label: "Maintenance reserve", amount: input.price * input.maintenance / 1200, color: "#c78665" },
   ];
-  return { downPayment, loan, expenses, total: expenses.reduce((sum, item) => sum + item.amount, 0) };
+  const escrow = expenses.filter(item => ["tax", "insurance", "pmi"].includes(item.key)).reduce((sum, item) => sum + item.amount, 0);
+  const otherHousing = expenses.filter(item => ["hoa", "utilities", "maintenance"].includes(item.key)).reduce((sum, item) => sum + item.amount, 0);
+  return { downPayment, loan, expenses, escrow, otherHousing, total: expenses.reduce((sum, item) => sum + item.amount, 0) };
 }
 export function affordability(total: number, income: number) {
   if (!Number.isFinite(income) || income <= 0) return null;

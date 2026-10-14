@@ -21,6 +21,7 @@ npm start
 ## Behavior
 
 - Standard fixed-rate amortization, including 0% interest and 100% down payment.
+- The monthly housing cost schedule begins with the same total as the main calculator, split into principal, interest, estimated escrow (tax, home insurance, PMI), and other costs (HOA, utilities, maintenance). First six months are individual, followed by 7–12 and 12-month groups. Each group uses starting monthly amounts and an ending loan balance. Current non-mortgage expenses, including PMI, remain constant throughout this illustration; it does not forecast inflation or PMI cancellation. Actual lender escrow arrangements can differ.
 - Property taxes, insurance, conditional conventional-loan PMI, HOA, utilities, and maintenance all contribute to monthly cost.
 - Annual/monthly toggles preserve income without rounding drift. Gross/net incomes are separate user-entered amounts; no tax conversion is inferred. The starting $90,000 gross income is an editable example.
 - Income is held in component memory and never sent to the server. Only ZIP is used for location lookup. No persistence or analytics.

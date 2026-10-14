@@ -28,6 +28,19 @@ test("expense overrides contribute to the total", () => {
   assert.equal(calculate({ ...defaults, hoa:250 }).total - calculate(defaults).total, 250);
   assert.equal(calculate({ ...defaults, insurance:3000 }).total - calculate(defaults).total, 100);
 });
+test("schedule components reconcile to total housing cost without double-counting", () => {
+  for (const input of [defaults, { ...defaults, down: 20, hoa: 125 }, { ...defaults, rate: 0, tax: 2.2, insurance: 2400, utilities: 425, maintenance: 1.3 }]) {
+    const result = calculate(input);
+    assert.equal(result.escrow, input.price * input.tax / 1200 + input.insurance / 12 + (input.down < 20 ? result.loan * input.pmi / 1200 : 0));
+    assert.equal(result.otherHousing, input.hoa + input.utilities + input.price * input.maintenance / 1200);
+    for (const row of mortgageSchedule(result.loan, input.rate, input.years)) {
+      assert.ok(Math.abs(row.principal + row.interest + result.escrow + result.otherHousing - result.total) < 0.000001);
+    }
+  }
+  const paidOff = calculate({ ...defaults, down: 100 });
+  assert.equal(paidOff.escrow, defaults.price * defaults.tax / 1200 + defaults.insurance / 12);
+  assert.equal(paidOff.total, paidOff.escrow + paidOff.otherHousing);
+});
 test("income frequency and optional second income", () => {
   assert.equal(monthlyIncome(90000,60000,false,"annual"),7500);
   assert.equal(monthlyIncome(90000,60000,true,"annual"),12500);
