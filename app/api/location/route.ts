@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { defaultLocation, electricity, utilityEstimate } from "@/lib/location";
+import { defaultLocation, estimateLocation } from "@/lib/location";
 
 export async function GET(request: NextRequest) {
   const zip = request.nextUrl.searchParams.get("zip") ?? "";
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const place = data.places?.[0];
     if (!place || typeof place["state abbreviation"] !== "string" || typeof place["place name"] !== "string") throw new Error("Invalid location");
     const state = place["state abbreviation"];
-    return NextResponse.json({ city: place["place name"], state, electricity: electricity[state] ?? null, utilities: utilityEstimate(state) });
+    return NextResponse.json(estimateLocation(zip, place["place name"], state));
   } catch {
     return NextResponse.json({ error: "Location lookup is temporarily unavailable. Default estimates are in use." }, { status: 503 });
   }

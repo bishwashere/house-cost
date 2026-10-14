@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { affordability, calculate, defaults, monthlyIncome, mortgagePayment, mortgageSchedule } from "../lib/calculator";
-import { utilityEstimate } from "../lib/location";
+import { applyLocationEstimates, defaultLocation, estimateLocation, fallbackExpenses, locationFields } from "../lib/location";
+import { statePriceIndex, stateTaxRate } from "../lib/location-benchmarks";
 
 test("standard amortization and full cost include all seven expenses", () => {
   const result = calculate(defaults);
@@ -41,10 +42,53 @@ test("category boundaries, no income, and shortfall", () => {
   assert.equal(affordability(2000,1000)?.remaining,-1000);
   assert.equal(affordability(2000,1000)?.remainingPercentage,-100);
 });
-test("location utility benchmarks preserve default and unknown fallback", () => {
-  assert.equal(utilityEstimate("PA"),350);
-  assert.equal(utilityEstimate("NY"),345);
-  assert.equal(utilityEstimate("XX"),null);
+test("location estimates cover all states and distinguish metro allowances from tax rates", () => {
+  assert.equal(Object.keys(statePriceIndex).length, 51);
+  assert.equal(Object.keys(stateTaxRate).length, 51);
+  const sf = estimateLocation("94103", "San Francisco", "CA");
+  const fresno = estimateLocation("93721", "Fresno", "CA");
+  const littleRock = estimateLocation("72201", "Little Rock", "AR");
+  assert.equal(sf.areaMultiplier, 1.15);
+  assert.equal(sf.tax, fresno.tax);
+  assert.equal(sf.tax, 0.70);
+  assert.ok(sf.insurance > fresno.insurance);
+  assert.ok(sf.utilities > fresno.utilities);
+  assert.ok(sf.maintenance > fresno.maintenance);
+  assert.ok(littleRock.insurance < defaultLocation.insurance);
+  assert.equal(defaultLocation.tax, 1.26);
+  assert.equal(defaultLocation.insurance, 1750);
+  assert.equal(defaultLocation.utilities, 345);
+  assert.equal(defaultLocation.maintenance, 0.98);
+  assert.equal(estimateLocation("02108", "Boston", "MA").area, "Boston area");
+  assert.equal(estimateLocation("10001", "New York", "NY").areaMultiplier, 1.15);
+  assert.equal(estimateLocation("98101", "Seattle", "WA").areaMultiplier, 1.10);
+  const unknown = estimateLocation("00901", "San Juan", "PR");
+  assert.equal(unknown.priceIndex, null);
+  for (const field of locationFields) assert.equal(unknown[field], fallbackExpenses[field]);
+  for (const state of Object.keys(statePriceIndex)) {
+    const area = estimateLocation("", "", state);
+    for (const field of locationFields) assert.ok(Number.isFinite(area[field]) && area[field] > 0);
+  }
+});
+
+test("location overrides preserve custom, zero, and empty values through lookup and reset", () => {
+  const raw = { tax: "2.2", insurance: "0", utilities: "", maintenance: "1.4", price: "450000", rate: "6.5" };
+  const sf = estimateLocation("94103", "San Francisco", "CA");
+  const overrides = { tax: true, insurance: true, utilities: true, maintenance: true };
+  for (const area of [sf, defaultLocation, null]) {
+    assert.deepEqual(applyLocationEstimates(raw, area, overrides), raw);
+  }
+  const restored = applyLocationEstimates(raw, sf, { ...overrides, insurance: false });
+  assert.equal(restored.insurance, String(sf.insurance));
+  assert.equal(restored.tax, raw.tax);
+  assert.equal(restored.utilities, "");
+  const automatic = applyLocationEstimates(raw, sf, {});
+  for (const field of locationFields) assert.equal(automatic[field], String(sf[field]));
+  assert.equal(automatic.price, raw.price);
+  assert.equal(automatic.rate, raw.rate);
+  const fallback = applyLocationEstimates(raw, null, {});
+  for (const field of locationFields) assert.equal(fallback[field], String(fallbackExpenses[field]));
+  assert.deepEqual(raw, { tax: "2.2", insurance: "0", utilities: "", maintenance: "1.4", price: "450000", rate: "6.5" });
 });
 
 test("mortgage schedule shows starting monthly amounts and ending balances", () => {

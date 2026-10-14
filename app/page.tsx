@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, ChevronDown, Copy, Info, MapPin, RotateCcw, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
 import { affordability, calculate, currency, defaults, monthlyIncome, mortgageSchedule, type Inputs } from "@/lib/calculator";
-import { defaultLocation, type LocationEstimate } from "@/lib/location";
+import { applyLocationEstimates, defaultLocation, locationFields, type LocationEstimate, type LocationField, type LocationOverrides } from "@/lib/location";
 
 type FieldProps = { id: string; label: string; value: string; onChange: (value: string) => void; prefix?: string; suffix?: string; max?: number; hint?: string; large?: boolean };
 function NumberField({ id, label, value, onChange, prefix, suffix, max = 1000000000, hint, large }: FieldProps) {
@@ -24,12 +24,11 @@ function NumberField({ id, label, value, onChange, prefix, suffix, max = 1000000
 }
 
 export default function Calculator() {
-  const [values, setValues] = useState<Record<keyof Inputs, string>>(() => Object.fromEntries(Object.entries(defaults).map(([key, value]) => [key, String(value)])) as Record<keyof Inputs, string>);
+  const [manualValues, setValues] = useState<Record<keyof Inputs, string>>(() => Object.fromEntries(Object.entries(defaults).map(([key, value]) => [key, String(value)])) as Record<keyof Inputs, string>);
   const [zip, setZip] = useState("17011");
-  const [location, setLocation] = useState<LocationEstimate | null>(defaultLocation);
+  const [resolvedLocation, setLocation] = useState<LocationEstimate | null>(defaultLocation);
   const [locationStatus, setLocationStatus] = useState("");
-  const [utilityOverride, setUtilityOverride] = useState(false);
-  const utilityOverrideRef = useRef(false);
+  const [overrides, setOverrides] = useState<LocationOverrides>({});
   const [expanded, setExpanded] = useState(false);
   const [sources, setSources] = useState(false);
   const [period, setPeriod] = useState<"annual" | "monthly">("annual");
@@ -39,19 +38,25 @@ export default function Calculator() {
   const [second, setSecond] = useState(false);
   const [copyStatus, setCopyStatus] = useState("");
   const [copyFallback, setCopyFallback] = useState("");
+  const location = resolvedLocation?.zip === zip ? resolvedLocation : null;
+  const values = applyLocationEstimates(manualValues, location, overrides);
   const numeric = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, Number(value)])) as Inputs;
   const result = calculate(numeric);
   const schedule = mortgageSchedule(result.loan, numeric.rate, numeric.years);
   const income = monthlyIncome(incomes[basis][0], incomes[basis][1], second, "annual");
   const analysis = affordability(result.total, income);
-  const setValue = (key: keyof Inputs, value: string) => setValues(previous => ({ ...previous, [key]: value }));
+  const setValue = (key: keyof Inputs, value: string) => {
+    if (locationFields.includes(key as LocationField)) setOverrides(previous => ({ ...previous, [key]: true }));
+    setValues(previous => ({ ...previous, [key]: value }));
+  };
+  const estimateHint = (field: LocationField) => overrides[field] ? "Your custom estimate" : location?.priceIndex != null ? field === "tax" ? "2024 state benchmark · verify locally" : "Location-adjusted planning estimate" : "Fallback planning estimate";
+  const restoreEstimate = (field: LocationField) => <button type="button" className="text-button restore" aria-label={`Use area estimate for ${field}`} onClick={() => setOverrides(previous => ({ ...previous, [field]: false }))}>Use area estimate</button>;
 
-  useEffect(() => { setCopyStatus(""); setCopyFallback(""); }, [values, zip, incomes, period, basis, second]);
+  useEffect(() => { setCopyStatus(""); setCopyFallback(""); }, [manualValues, overrides, location, zip, incomes, period, basis, second]);
 
   useEffect(() => {
     const controller = new AbortController();
     setLocation(null);
-    if (!utilityOverrideRef.current) setValues(previous => ({ ...previous, utilities: "350" }));
     if (!/^\d{5}$/.test(zip)) { setLocationStatus("Enter a five-digit ZIP code. Default estimates apply."); return () => controller.abort(); }
     if (zip === "17011") { setLocation(defaultLocation); setLocationStatus(""); return () => controller.abort(); }
     setLocationStatus("Looking up your area…");
@@ -62,7 +67,6 @@ export default function Calculator() {
         if (controller.signal.aborted) return;
         if (!response.ok) throw new Error(data.error);
         setLocation(data); setLocationStatus("");
-        if (!utilityOverrideRef.current) setValues(previous => ({ ...previous, utilities: String(data.utilities ?? 350) }));
       } catch (error) {
         if (!controller.signal.aborted) setLocationStatus(error instanceof Error ? error.message : "Location unavailable. Default estimates apply.");
       }
@@ -73,12 +77,12 @@ export default function Calculator() {
   const setIncome = (index: number, value: string) => setIncomes(previous => ({ ...previous, [basis]: previous[basis].map((amount, i) => i === index ? Number(value) * (period === "monthly" ? 12 : 1) : amount) }));
   const reset = () => {
     setValues(Object.fromEntries(Object.entries(defaults).map(([key, value]) => [key, String(value)])) as Record<keyof Inputs, string>);
-    setZip("17011"); setLocation(defaultLocation); setLocationStatus(""); setUtilityOverride(false); utilityOverrideRef.current = false;
+    setZip("17011"); setLocation(defaultLocation); setLocationStatus(""); setOverrides({});
     setPeriod("annual"); setBasis("gross"); setIncomes({ gross: [90000, 0], net: [0, 0] }); setSecond(false); setCopyStatus(""); setCopyFallback("");
     setExpanded(false); setSources(false);
   };
   const copy = async () => {
-    const text = ["HOUSE AFFORDABILITY CALCULATION", `House price: ${currency(numeric.price, 2)}`, `ZIP: ${zip || "Not provided"}${location ? ` (${location.city}, ${location.state})` : ""}`, `Down payment: ${numeric.down}% · ${currency(result.downPayment, 2)}`, `Mortgage loan: ${currency(result.loan, 2)}`, `Interest: ${numeric.rate}% fixed · ${numeric.years} years`, `Tax rate: ${numeric.tax}% annually`, `Insurance: ${currency(numeric.insurance, 2)}/year`, `Maintenance: ${numeric.maintenance}% annually`, `PMI rate: ${numeric.pmi}% annually (applies below 20% down)`, "", "MONTHLY EXPENSES", ...result.expenses.map(item => `${item.label}: ${currency(item.amount, 2)}`), `Total monthly housing cost: ${currency(result.total, 2)}`, `Annual housing expenses: ${currency(result.total * 12, 2)}`, "", `HOUSEHOLD INCOME · ${basis.toUpperCase()} · ${period.toUpperCase()} INPUT`, `Person 1: ${currency(incomes[basis][0] / (period === "annual" ? 1 : 12), 2)}/${period === "annual" ? "year" : "month"}`, ...(second ? [`Person 2: ${currency(incomes[basis][1] / (period === "annual" ? 1 : 12), 2)}/${period === "annual" ? "year" : "month"}`] : []), `Monthly household income: ${currency(income, 2)}`, analysis ? `Remaining monthly income: ${currency(analysis.remaining, 2)}\nHousing percentage: ${analysis.percentage.toFixed(1)}%\nIncome remaining: ${analysis.remainingPercentage.toFixed(1)}%\nIllustrative burden: ${analysis.category}` : "Affordability: enter a positive household income.", "", basis === "gross" ? "Remaining income is before income taxes and other living expenses." : "Remaining income is after income taxes, before other living expenses.", "Illustrative categories: ≤30% lower, >30–40% moderate, >40% high. These are not mortgage qualification rules.", "Tax and insurance are editable planning assumptions, not property-specific estimates. PMI eligibility, cost, and cancellation depend on loan terms.", `Utilities: ${utilityOverride ? "manual override" : location?.electricity != null ? `2024 EIA ${location.state} electricity average (${currency(location.electricity, 2)}) + $205 assumed other utilities, rounded to nearest $5` : "$350 fallback assumption"}.`, "EIA source: https://www.eia.gov/electricity/sales_revenue_price/pdf/table_5A.pdf", "Excludes closing costs and other debts. Estimates are not a loan offer."].join("\n");
+    const text = ["HOUSE AFFORDABILITY CALCULATION", `House price: ${currency(numeric.price, 2)}`, `ZIP: ${zip || "Not provided"}${location ? ` (${location.city}, ${location.state})` : ""}`, `Down payment: ${numeric.down}% · ${currency(result.downPayment, 2)}`, `Mortgage loan: ${currency(result.loan, 2)}`, `Interest: ${numeric.rate}% fixed · ${numeric.years} years`, `Tax rate: ${numeric.tax}% annually`, `Insurance: ${currency(numeric.insurance, 2)}/year`, `Maintenance: ${numeric.maintenance}% annually`, `PMI rate: ${numeric.pmi}% annually (applies below 20% down)`, "", "MONTHLY EXPENSES", ...result.expenses.map(item => `${item.label}: ${currency(item.amount, 2)}`), `Total monthly housing cost: ${currency(result.total, 2)}`, `Annual housing expenses: ${currency(result.total * 12, 2)}`, "", `HOUSEHOLD INCOME · ${basis.toUpperCase()} · ${period.toUpperCase()} INPUT`, `Person 1: ${currency(incomes[basis][0] / (period === "annual" ? 1 : 12), 2)}/${period === "annual" ? "year" : "month"}`, ...(second ? [`Person 2: ${currency(incomes[basis][1] / (period === "annual" ? 1 : 12), 2)}/${period === "annual" ? "year" : "month"}`] : []), `Monthly household income: ${currency(income, 2)}`, analysis ? `Remaining monthly income: ${currency(analysis.remaining, 2)}\nHousing percentage: ${analysis.percentage.toFixed(1)}%\nIncome remaining: ${analysis.remainingPercentage.toFixed(1)}%\nIllustrative burden: ${analysis.category}` : "Affordability: enter a positive household income.", "", basis === "gross" ? "Remaining income is before income taxes and other living expenses." : "Remaining income is after income taxes, before other living expenses.", "Illustrative categories: ≤30% lower, >30–40% moderate, >40% high. These are not mortgage qualification rules.", "Location estimates are planning assumptions, not property-specific quotes. PMI eligibility, cost, and cancellation depend on loan terms.", `Location factor: ${location ? `${location.costFactor.toFixed(3)} (${location.state} BEA 2024 index ${location.priceIndex ?? "unavailable"}; ${location.area ?? "no metro allowance"}, ×${location.areaMultiplier})` : "fallback defaults"}.`, ...locationFields.map(field => `${field}: ${estimateHint(field)}`), "Tax: historical state effective rate applied to the entered price; assessed values, exemptions, and purchase reassessment may differ.", "Insurance: $1,800 × location factor, nearest $50. Maintenance: 1% × location factor, nearest 0.01%. Utilities: EIA state electricity + $205 × location factor, nearest $5. Insurance model excludes hazard and coverage pricing.", "Sources: https://www.bea.gov/data/prices-inflation/regional-price-parities-state-and-metro-area ; https://taxfoundation.org/data/all/state/property-taxes-by-state-county/ ; https://www.eia.gov/electricity/sales_revenue_price/pdf/table_5A.pdf", "Excludes closing costs and other debts. Estimates are not a loan offer."].join("\n");
     const scheduleText = ["", "MORTGAGE PAYMENT SCHEDULE", "Payments, principal, and interest are monthly amounts from the first month of each range. Balance is at the end of the range. Mortgage only; excludes other housing expenses.", "Month | Monthly payment | Principal/month | Interest/month | Ending balance", ...schedule.map(row => `${row.startMonth === row.endMonth ? row.startMonth : `${row.startMonth}–${row.endMonth}`} | ${currency(row.payment, 2)} | ${currency(row.principal, 2)} | ${currency(row.interest, 2)} | ${currency(row.balance, 2)}`), ...(schedule.length ? [] : ["No mortgage payments: no loan balance."])].join("\n");
     const completeText = text + "\n" + scheduleText;
     try { await navigator.clipboard.writeText(completeText); setCopyStatus("Calculation copied!"); setCopyFallback(""); } catch { setCopyFallback(completeText); setCopyStatus("Select and copy your calculation below."); }
@@ -90,8 +94,15 @@ export default function Calculator() {
 
       <section className="card house-card" aria-label="House information">
         <div className="house-inputs"><NumberField id="price" label="House price" value={values.price} onChange={value => setValue("price", value)} prefix="$" large max={100000000}/><div className="field field-large"><label htmlFor="zip">ZIP code</label><div className="input-shell"><MapPin size={19}/><input id="zip" inputMode="numeric" autoComplete="postal-code" value={zip} maxLength={5} onChange={event => setZip(event.target.value.replace(/\D/g, ""))} aria-describedby="location-status"/></div></div></div>
-        <div className="location-line" id="location-status" aria-live="polite"><MapPin size={13}/><span>{location ? `${location.city}, ${location.state}` : locationStatus}</span><button className="text-button" onClick={() => setSources(!sources)} aria-expanded={sources}>About the estimates <Info size={13}/></button></div>
-        {sources && <div className="source-note"><p>ZIP lookup uses <a href="https://www.zippopotam.us/" target="_blank" rel="noreferrer">Zippopotam.us</a>. Utilities combine the <a href="https://www.eia.gov/electricity/sales_revenue_price/pdf/table_5A.pdf" target="_blank" rel="noreferrer">EIA’s 2024 state electricity average</a>{location?.electricity != null ? ` (${currency(location.electricity, 2)}/month in ${location.state})` : ""} with an assumed $205 for water, heating, internet, and other services, rounded to the nearest $5. This is a state benchmark, not ZIP-specific billing.</p><p>Property tax (1.5%) and insurance ($1,800/year) are planning defaults. Reliable property-specific quotes aren’t available from a ZIP alone. Check the local assessor and your insurer. You can edit every estimate below; your utility override stays in place when the ZIP changes.</p></div>}
+        <div className="location-line" id="location-status" aria-live="polite"><MapPin size={13}/><span>{location ? `${location.city}, ${location.state} · ${location.priceIndex == null ? "Default estimates" : location.area ? "Higher-cost area estimates" : "State-adjusted estimates"}` : locationStatus}</span><button className="text-button" onClick={() => setSources(!sources)} aria-expanded={sources}>About the estimates <Info size={13}/></button></div>
+        {sources && <div className="source-note">
+          <p>ZIP lookup: <a href="https://www.zippopotam.us/" target="_blank" rel="noreferrer">Zippopotam.us</a>. The cost factor uses <a href="https://www.bea.gov/data/prices-inflation/regional-price-parities-state-and-metro-area" target="_blank" rel="noreferrer">BEA’s 2024 state price index</a> divided by 100, plus a 10–15% planning allowance for selected expensive metro ZIP prefixes. These approximate areas are not neighborhood-level measurements.</p>
+          {location && <p>{location.state} index: {location.priceIndex?.toFixed(1) ?? "unavailable"}. {location.area ? `${location.area} allowance: +${Math.round((location.areaMultiplier - 1) * 100)}%.` : "No metro allowance."} Combined factor: {location.costFactor.toFixed(3)}.</p>}
+          <p>Property taxes use <a href="https://taxfoundation.org/data/all/state/property-taxes-by-state-county/" target="_blank" rel="noreferrer">2024 state effective rates from Census data, calculated by Tax Foundation</a>. This is a historical benchmark, not your tax bill; exemptions, local assessments, and reassessment after purchase can change the amount. Cost of living does not multiply the tax rate.</p>
+          <p>Insurance = $1,800 × cost factor, rounded to $50. Maintenance = 1% of house value × cost factor, rounded to 0.01%. These are budgeting formulas, not insurance quotes or repair estimates; hazard exposure, coverage, and home condition can change costs substantially.</p>
+          <p>Utilities = <a href="https://www.eia.gov/electricity/sales_revenue_price/pdf/table_5A.pdf" target="_blank" rel="noreferrer">EIA’s 2024 state electricity bill</a> + $205 × cost factor for other services, rounded to $5. Unsupported or unavailable locations use default estimates. Mortgage terms stay as entered. Custom expense values stay in place when the ZIP changes.</p>
+        </div>}
+
         {!expanded && <div className="down-payment-quick">
           <div className="down-payment-label"><span id="down-payment-label">Down payment</span><span>{numeric.down}% · {currency(result.downPayment)}</span></div>
           <div className="down-payment-options" role="group" aria-labelledby="down-payment-label">
@@ -103,11 +114,11 @@ export default function Calculator() {
             <div><NumberField id="down" label="Down payment" value={values.down} onChange={value => setValue("down", value)} suffix="%" max={100} hint={currency(result.downPayment)}/><input type="range" min="0" max="100" step="1" value={numeric.down} onChange={event => setValue("down", event.target.value)} aria-label="Down payment percentage"/></div>
             <NumberField id="rate" label="Mortgage interest rate" value={values.rate} onChange={value => setValue("rate", value)} suffix="%" max={100} hint="Annual fixed rate"/>
             <div className="field"><label htmlFor="years">Loan duration</label><div className="input-shell"><select id="years" value={values.years} onChange={event => setValue("years", event.target.value)}>{[15,20,30].map(years => <option key={years} value={years}>{years} years</option>)}</select></div></div>
-            <NumberField id="tax" label="Annual property tax rate" value={values.tax} onChange={value => setValue("tax", value)} suffix="%" max={100} hint="Planning assumption · verify locally"/>
-            <NumberField id="insurance" label="Annual homeowners insurance" value={values.insurance} onChange={value => setValue("insurance", value)} prefix="$" hint="Planning assumption · request a quote"/>
+            <div><NumberField id="tax" label="Annual property tax rate" value={values.tax} onChange={value => setValue("tax", value)} suffix="%" max={100} hint={estimateHint("tax")}/>{overrides.tax && restoreEstimate("tax")}</div>
+            <div><NumberField id="insurance" label="Annual homeowners insurance" value={values.insurance} onChange={value => setValue("insurance", value)} prefix="$" hint={estimateHint("insurance")}/>{overrides.insurance && restoreEstimate("insurance")}</div>
             <NumberField id="hoa" label="Monthly HOA fees" value={values.hoa} onChange={value => setValue("hoa", value)} prefix="$"/>
-            <div><NumberField id="utilities" label="Monthly utilities" value={values.utilities} onChange={value => { utilityOverrideRef.current = true; setUtilityOverride(true); setValue("utilities", value); }} prefix="$" hint={utilityOverride ? "Your custom estimate" : location?.electricity != null ? "State electricity benchmark + assumed services" : "Fallback planning assumption"}/>{utilityOverride && <button className="text-button restore" onClick={() => { utilityOverrideRef.current = false; setUtilityOverride(false); setValue("utilities", String(location?.utilities ?? 350)); }}>Use area estimate</button>}</div>
-            <NumberField id="maintenance" label="Annual maintenance reserve" value={values.maintenance} onChange={value => setValue("maintenance", value)} suffix="%" max={100} hint="Percentage of home value"/>
+            <div><NumberField id="utilities" label="Monthly utilities" value={values.utilities} onChange={value => setValue("utilities", value)} prefix="$" hint={estimateHint("utilities")}/>{overrides.utilities && restoreEstimate("utilities")}</div>
+            <div><NumberField id="maintenance" label="Annual maintenance reserve" value={values.maintenance} onChange={value => setValue("maintenance", value)} suffix="%" max={100} hint={estimateHint("maintenance")}/>{overrides.maintenance && restoreEstimate("maintenance")}</div>
             <NumberField id="pmi" label="Annual estimated PMI rate" value={values.pmi} onChange={value => setValue("pmi", value)} suffix="%" max={100} hint={numeric.down < 20 ? "Applied to original loan balance" : "Not applied with 20% or more down"}/>
           </div><p className="fine-print"><Info size={14}/> PMI is estimated for a conventional loan with less than 20% down. Actual eligibility, cost, and cancellation depend on your loan terms.</p></div>}
         </div>
