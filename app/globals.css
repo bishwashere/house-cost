@@ -28,3 +28,17 @@
 .income-progress{margin-bottom:0}
 .progress-caption{padding-bottom:20px}
 @media(max-width:520px){.calculator-heading{margin:24px 0 20px;align-items:flex-start}.calculator-heading h1{font-size:20px}.advanced-fields{padding-top:16px}}
+
+.schedule-card{padding:25px 28px}
+.schedule-card h2{font-size:16px;font-weight:750;letter-spacing:-.4px}
+.schedule-note{font-size:11px;line-height:1.6;color:#657361;margin-top:10px}
+.schedule-scroll{overflow:auto;max-height:520px;margin-top:20px;border:1px solid var(--line);border-radius:8px}
+.schedule-scroll:focus-visible{outline:3px solid #a2c7af;outline-offset:3px}
+.schedule-table{border-collapse:separate;border-spacing:0;width:100%;min-width:650px;font-size:11px;font-variant-numeric:tabular-nums}
+.schedule-table th,.schedule-table td{padding:13px 14px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+.schedule-table thead th{position:sticky;top:0;z-index:1;background:#f0f3eb;color:#56625b;font-weight:600}
+.schedule-table th:first-child{text-align:left}
+.schedule-table tbody th{font-weight:500}
+.schedule-table tbody tr:nth-child(even){background:#fafbf8}
+.schedule-table tbody tr:last-child>*{border-bottom:0}
+@media(max-width:520px){.schedule-card{padding:21px 18px}.schedule-card h2{font-size:14px}.schedule-note{font-size:10px}.schedule-scroll{margin-top:16px}}

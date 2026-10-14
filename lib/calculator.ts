@@ -12,6 +12,21 @@ export function mortgagePayment(principal: number, annualRate: number, years: nu
   if (!loan || !months) return 0;
   return rate === 0 ? loan / months : loan * rate / -Math.expm1(-months * Math.log1p(rate));
 }
+export function mortgageSchedule(principal: number, annualRate: number, years: number) {
+  const loan = positive(principal), months = Math.floor(positive(years) * 12), rate = positive(annualRate) / 1200;
+  const rows: { startMonth: number; endMonth: number; payment: number; principal: number; interest: number; balance: number }[] = [];
+  if (!loan || !months) return rows;
+  const payment = mortgagePayment(loan, annualRate, months / 12);
+  for (let startMonth = 1; startMonth <= months;) {
+    const endMonth = Math.min(months, startMonth <= 6 ? startMonth : Math.ceil(startMonth / 12) * 12);
+    // Compute from the remaining term to avoid accumulated rounding or cancellation errors.
+    const principalPayment = rate === 0 ? payment : payment * Math.exp(-(months - startMonth + 1) * Math.log1p(rate));
+    const balance = rate === 0 ? payment * (months - endMonth) : payment * -Math.expm1(-(months - endMonth) * Math.log1p(rate)) / rate;
+    rows.push({ startMonth, endMonth, payment, principal: principalPayment, interest: payment - principalPayment, balance: Math.max(0, balance) });
+    startMonth = endMonth + 1;
+  }
+  return rows;
+}
 export function calculate(raw: Inputs) {
   const input = Object.fromEntries(Object.entries(raw).map(([key, value]) => [key, positive(value)])) as Inputs;
   const down = Math.min(100, input.down);

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { affordability, calculate, defaults, monthlyIncome, mortgagePayment } from "../lib/calculator";
+import { affordability, calculate, defaults, monthlyIncome, mortgagePayment, mortgageSchedule } from "../lib/calculator";
 import { utilityEstimate } from "../lib/location";
 
 test("standard amortization and full cost include all seven expenses", () => {
@@ -45,4 +45,52 @@ test("location utility benchmarks preserve default and unknown fallback", () => 
   assert.equal(utilityEstimate("PA"),350);
   assert.equal(utilityEstimate("NY"),345);
   assert.equal(utilityEstimate("XX"),null);
+});
+
+test("mortgage schedule shows starting monthly amounts and ending balances", () => {
+  const rows = mortgageSchedule(405000, 6.5, 30);
+  assert.equal(rows.length, 36);
+  assert.deepEqual(rows.slice(0, 8).map(row => [row.startMonth, row.endMonth]), [[1,1],[2,2],[3,3],[4,4],[5,5],[6,6],[7,12],[13,24]]);
+  assert.ok(Math.abs(rows[0].interest - 2193.75) < 0.000001);
+  assert.equal(rows[6].principal.toFixed(2), "378.19");
+  assert.equal(rows[6].balance.toFixed(2), "400473.21");
+  // Independently amortize every month to verify each group's start and end.
+  let balance = 405000;
+  const payment = mortgagePayment(balance, 6.5, 30);
+  for (let month = 1; month <= 360; month++) {
+    const interest = balance * 0.065 / 12;
+    const principal = payment - interest;
+    balance -= principal;
+    const start = rows.find(row => row.startMonth === month);
+    if (start) {
+      assert.equal(start.payment, payment);
+      assert.ok(Math.abs(start.interest - interest) < 0.000001);
+      assert.ok(Math.abs(start.principal - principal) < 0.000001);
+    }
+    const end = rows.find(row => row.endMonth === month);
+    if (end) assert.ok(Math.abs(end.balance - balance) < 0.000001);
+  }
+  assert.equal(rows.at(-1)?.balance, 0);
+});
+
+test("schedule covers each selected term once and handles zero interest or no loan", () => {
+  for (const years of [15, 20, 30]) {
+    const rows = mortgageSchedule(360000, 0, years);
+    let nextMonth = 1;
+    for (const row of rows) {
+      assert.equal(row.startMonth, nextMonth);
+      assert.equal(row.payment, 360000 / (years * 12));
+      assert.equal(row.principal, row.payment);
+      assert.equal(row.interest, 0);
+      nextMonth = row.endMonth + 1;
+    }
+    assert.equal(nextMonth, years * 12 + 1);
+    assert.equal(rows.at(-1)?.balance, 0);
+  }
+  assert.deepEqual(mortgageSchedule(0, 6.5, 30), []);
+  assert.deepEqual(mortgageSchedule(NaN, 6.5, 30), []);
+  assert.deepEqual(mortgageSchedule(405000, 6.5, 0), []);
+  const highRate = mortgageSchedule(405000, 100, 30);
+  assert.equal(highRate.at(-1)?.balance, 0);
+  assert.ok(highRate.every(row => Object.values(row).every(value => Number.isFinite(value) && value >= 0)));
 });

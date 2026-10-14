@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Copy, Info, MapPin, RotateCcw, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
-import { affordability, calculate, currency, defaults, monthlyIncome, type Inputs } from "@/lib/calculator";
+import { affordability, calculate, currency, defaults, monthlyIncome, mortgageSchedule, type Inputs } from "@/lib/calculator";
 import { defaultLocation, type LocationEstimate } from "@/lib/location";
 
 type FieldProps = { id: string; label: string; value: string; onChange: (value: string) => void; prefix?: string; suffix?: string; max?: number; hint?: string; large?: boolean };
@@ -41,6 +41,7 @@ export default function Calculator() {
   const [copyFallback, setCopyFallback] = useState("");
   const numeric = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, Number(value)])) as Inputs;
   const result = calculate(numeric);
+  const schedule = mortgageSchedule(result.loan, numeric.rate, numeric.years);
   const income = monthlyIncome(incomes[basis][0], incomes[basis][1], second, "annual");
   const analysis = affordability(result.total, income);
   const setValue = (key: keyof Inputs, value: string) => setValues(previous => ({ ...previous, [key]: value }));
@@ -78,7 +79,9 @@ export default function Calculator() {
   };
   const copy = async () => {
     const text = ["HOUSE AFFORDABILITY CALCULATION", `House price: ${currency(numeric.price, 2)}`, `ZIP: ${zip || "Not provided"}${location ? ` (${location.city}, ${location.state})` : ""}`, `Down payment: ${numeric.down}% · ${currency(result.downPayment, 2)}`, `Mortgage loan: ${currency(result.loan, 2)}`, `Interest: ${numeric.rate}% fixed · ${numeric.years} years`, `Tax rate: ${numeric.tax}% annually`, `Insurance: ${currency(numeric.insurance, 2)}/year`, `Maintenance: ${numeric.maintenance}% annually`, `PMI rate: ${numeric.pmi}% annually (applies below 20% down)`, "", "MONTHLY EXPENSES", ...result.expenses.map(item => `${item.label}: ${currency(item.amount, 2)}`), `Total monthly housing cost: ${currency(result.total, 2)}`, `Annual housing expenses: ${currency(result.total * 12, 2)}`, "", `HOUSEHOLD INCOME · ${basis.toUpperCase()} · ${period.toUpperCase()} INPUT`, `Person 1: ${currency(incomes[basis][0] / (period === "annual" ? 1 : 12), 2)}/${period === "annual" ? "year" : "month"}`, ...(second ? [`Person 2: ${currency(incomes[basis][1] / (period === "annual" ? 1 : 12), 2)}/${period === "annual" ? "year" : "month"}`] : []), `Monthly household income: ${currency(income, 2)}`, analysis ? `Remaining monthly income: ${currency(analysis.remaining, 2)}\nHousing percentage: ${analysis.percentage.toFixed(1)}%\nIncome remaining: ${analysis.remainingPercentage.toFixed(1)}%\nIllustrative burden: ${analysis.category}` : "Affordability: enter a positive household income.", "", basis === "gross" ? "Remaining income is before income taxes and other living expenses." : "Remaining income is after income taxes, before other living expenses.", "Illustrative categories: ≤30% lower, >30–40% moderate, >40% high. These are not mortgage qualification rules.", "Tax and insurance are editable planning assumptions, not property-specific estimates. PMI eligibility, cost, and cancellation depend on loan terms.", `Utilities: ${utilityOverride ? "manual override" : location?.electricity != null ? `2024 EIA ${location.state} electricity average (${currency(location.electricity, 2)}) + $205 assumed other utilities, rounded to nearest $5` : "$350 fallback assumption"}.`, "EIA source: https://www.eia.gov/electricity/sales_revenue_price/pdf/table_5A.pdf", "Excludes closing costs and other debts. Estimates are not a loan offer."].join("\n");
-    try { await navigator.clipboard.writeText(text); setCopyStatus("Calculation copied!"); setCopyFallback(""); } catch { setCopyFallback(text); setCopyStatus("Select and copy your calculation below."); }
+    const scheduleText = ["", "MORTGAGE PAYMENT SCHEDULE", "Payments, principal, and interest are monthly amounts from the first month of each range. Balance is at the end of the range. Mortgage only; excludes other housing expenses.", "Month | Monthly payment | Principal/month | Interest/month | Ending balance", ...schedule.map(row => `${row.startMonth === row.endMonth ? row.startMonth : `${row.startMonth}–${row.endMonth}`} | ${currency(row.payment, 2)} | ${currency(row.principal, 2)} | ${currency(row.interest, 2)} | ${currency(row.balance, 2)}`), ...(schedule.length ? [] : ["No mortgage payments: no loan balance."])].join("\n");
+    const completeText = text + "\n" + scheduleText;
+    try { await navigator.clipboard.writeText(completeText); setCopyStatus("Calculation copied!"); setCopyFallback(""); } catch { setCopyFallback(completeText); setCopyStatus("Select and copy your calculation below."); }
   };
 
   return <>
@@ -130,6 +133,21 @@ export default function Calculator() {
       </section>
 
       <section className="card summary-card" aria-labelledby="summary-heading"><div className="summary-header"><div><h2 id="summary-heading">Financial Summary</h2></div><button className="copy-button" onClick={copy}>{copyStatus === "Calculation copied!" ? <Check size={16}/> : <Copy size={16}/>} {copyStatus === "Calculation copied!" ? "Copied!" : "Copy Calculation"}</button></div><dl className="summary-grid"><div><dt>Down payment <span>{numeric.down}%</span></dt><dd>{currency(result.downPayment)}</dd></div><div><dt>Total mortgage loan</dt><dd>{currency(result.loan)}</dd></div><div><dt>Annual housing expenses</dt><dd>{currency(result.total * 12)}</dd></div><div><dt>Monthly income <span>{basis}</span></dt><dd>{currency(income)}</dd></div><div><dt>Remaining each month</dt><dd>{analysis ? currency(analysis.remaining) : "—"}</dd></div><div><dt>Income toward housing</dt><dd>{analysis ? `${analysis.percentage.toFixed(1)}%` : "—"}</dd></div></dl><div className="copy-status" role="status">{copyStatus}</div>{copyFallback && <div className="copy-fallback"><label htmlFor="copy-text">Your complete calculation</label><textarea id="copy-text" readOnly value={copyFallback} onFocus={event => event.target.select()}/><button className="text-button" onClick={() => setCopyFallback("")}><X size={14}/> Close</button></div>}</section>
+      <section className="card schedule-card" aria-labelledby="schedule-heading">
+        <h2 id="schedule-heading">Mortgage Payment Schedule</h2>
+        {schedule.length > 0 ? <>
+          <p id="schedule-note" className="schedule-note">Monthly amounts use the first month of each range; balance is at the end. Mortgage only.</p>
+          <div className="schedule-scroll" role="region" aria-labelledby="schedule-heading" aria-describedby="schedule-note" tabIndex={0}>
+            <table className="schedule-table">
+              <thead><tr><th scope="col">Month</th><th scope="col">Monthly payment</th><th scope="col">Principal / month</th><th scope="col">Interest / month</th><th scope="col">Balance at end</th></tr></thead>
+              <tbody>{schedule.map(row => <tr key={row.startMonth}>
+                <th scope="row">{row.startMonth === row.endMonth ? row.startMonth : `${row.startMonth}–${row.endMonth}`}</th>
+                <td>{currency(row.payment, 2)}</td><td>{currency(row.principal, 2)}</td><td>{currency(row.interest, 2)}</td><td>{currency(row.balance, 2)}</td>
+              </tr>)}</tbody>
+            </table>
+          </div>
+        </> : <p className="schedule-note">No mortgage payments: no loan balance.</p>}
+      </section>
       <footer><p>For planning and illustration only. Not financial advice or a loan offer.<br/>Estimates exclude closing costs, other debts, and changes in future expenses.</p><span className="footer-private"><ShieldCheck size={13}/> Income stays in your browser</span></footer>
     </main>
   </>;
