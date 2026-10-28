@@ -1,3 +1,9 @@
+# Nestwell: what does a house really cost?
+
+Buying a house is not just the mortgage payment. Taxes, insurance, PMI, utilities, and upkeep decide what a home actually costs every month, and most calculators leave half of it out.
+
+Nestwell is a simple web calculator that shows the full monthly picture for a house you are considering, and how the loan pays down over time. The front end is a single Next.js page that runs entirely in your browser; there is no back end, and nothing you type is stored or sent anywhere. The technical documentation follows below.
+
 # House Affordability Calculator
 
 A responsive, single-page Next.js App Router application with TypeScript and React. No keys or database required.
