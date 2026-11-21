@@ -99,7 +99,7 @@ export default function Calculator() {
 
   return <>
     <main id="main">
-      <div className="calculator-heading"><h1>House Affordability Calculator</h1><button className="text-button" onClick={reset}><RotateCcw size={13}/> Reset</button></div>
+      <div className="calculator-heading"><h1>How Much House Can I Afford?</h1><button className="text-button" onClick={reset}><RotateCcw size={13}/> Reset</button></div>
 
       <section className="card house-card" aria-label="House information">
         <div className="house-inputs"><div className="house-price-field"><NumberField id="price" label="House price" value={values.price} onChange={value => setValue("price", value)} prefix="$" large max={100000000}/></div><div className="field field-large"><label htmlFor="zip">ZIP code</label><div className="input-shell"><MapPin size={19}/><input id="zip" inputMode="numeric" autoComplete="postal-code" value={zip} maxLength={5} onChange={event => setZip(event.target.value.replace(/\D/g, ""))} aria-describedby="location-status"/></div></div></div>
