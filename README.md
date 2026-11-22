@@ -30,7 +30,7 @@ npm start
 - The monthly housing cost schedule begins with the same total as the main calculator, with Total, Principal, and Interest in three columns. Under each month group, escrow is itemized into property taxes, homeowners insurance, and PMI, followed by separate HOA, utilities, maintenance, and ending loan balance lines. The escrow subtotal includes its itemized components; it is not an additional expense. First six months are individual, followed by 7–12 and 12-month groups. Each group uses starting monthly amounts and an ending loan balance. Current non-mortgage expenses, including PMI, remain constant throughout this illustration; it does not forecast inflation or PMI cancellation. Actual lender escrow arrangements can differ.
 - Property taxes, insurance, conditional conventional-loan PMI, HOA, utilities, and maintenance all contribute to monthly cost.
 - Annual/monthly toggles preserve income without rounding drift. Gross/net incomes are separate user-entered amounts; no tax conversion is inferred. The starting $90,000 gross income is an editable example.
-- Income is held in component memory and never sent to the server. Only ZIP is used for location lookup. No persistence or analytics.
+- Income is held in component memory and never sent to the server. Only ZIP is used for location lookup. Calculator inputs are not persisted. Optional Google Analytics is off unless you allow it in Privacy settings; calculator entries are never included.
 - Copy includes assumptions, detailed expenses, inputs, income basis, results, and source information. A selectable text fallback is shown when clipboard access is denied.
 - Illustrative housing-burden categories are not underwriting or mortgage qualification rules.
 
@@ -60,3 +60,7 @@ Tax, insurance, utilities, and maintenance each have an independent manual overr
 Closing costs, debt payments, tax deductions, future inflation, and lender qualification are outside this calculator. The annual total is twelve times the current estimated monthly expenses.
 
 Google Fonts is optional; system fonts work offline. No income is passed to that service. All graphics are local inline SVG or Lucide icons.
+
+## Optional analytics
+
+Set `HOUSE_COST_GA_MEASUREMENT_ID` at build time to enable the default-off consent controls. Analytics runs only on the calculator home page at `https://howmuchhousecaniafford.azent.io`; Vercel aliases and preview hosts do not collect. Disable Enhanced Measurement and advertising features in the dedicated GA4 stream. The app sends one URL-sanitized page view only after permission and does not send calculator interactions; Google may generate routine session and engagement metrics. Verify blocked and opted-in network outcomes before enabling production.
